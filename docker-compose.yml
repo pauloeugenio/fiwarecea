@@ -1,0 +1,202 @@
+version: "3.1"
+services:
+
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    hostname: mosquitto
+    container_name: mosquitto
+    expose:
+      - "1883"
+      - "9001"
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - default
+    restart: always
+
+
+  mongo-db:
+    image: mongo:3.6
+    hostname: mongo-db
+    container_name: db-mongo
+    expose:
+      - "27017"
+    ports:
+      - "27017:27017"
+    networks:
+      - default
+    command: --bind_ip_all --smallfiles
+    volumes:
+      - mongo-db:/data
+    restart: always
+   
+
+  mysql-db:
+    restart: always
+    image: mysql
+    hostname: mysql-db
+    container_name: db-mysql
+    expose:
+      - "3306"
+    ports:
+      - "3306:3306"
+    networks:
+      - default
+    environment:
+      - "MYSQL_ROOT_PASSWORD=123"
+      - "MYSQL_ROOT_HOST=%"
+    volumes:
+      - mysql-db:/var/lib/mysql
+    restart: always
+
+  orion:
+    image: fiware/orion:latest
+    hostname: orion
+    container_name: fiware-orion
+    depends_on:
+      - mongo-db
+    networks:
+      - default
+    expose:
+      - "1026"
+    ports:
+      - "1026:1026"
+    command: -dbhost mongo-db -logLevel DEBUG
+    restart: always
+    
+  cygnus:
+    image: fiware/cygnus-ngsi:latest
+    hostname: cygnus
+    container_name: fiware-cygnus
+    networks:
+        - default
+    depends_on:
+        - mysql-db
+    expose:
+        - "5080"
+    ports:
+        - "5050:5050"
+        - "5080:5080"
+    restart: always
+    environment:
+        - "CYGNUS_MYSQL_HOST=mysql-db" # Hostname of the MySQL server used to persist historical context data 
+        - "CYGNUS_MYSQL_PORT=3306" # Port that the MySQL server uses to listen to commands
+        - "CYGNUS_MYSQL_USER=root" # Username for the MySQL database user
+        - "CYGNUS_MYSQL_PASS=123" # Password for the MySQL database user
+        - "CYGNUS_LOG_LEVEL=DEBUG" # The logging level for Cygnus
+        - "CYGNUS_SERVICE_PORT=5050" # Notification Port that Cygnus listens when subcribing to context data changes
+        - "CYGNUS_API_PORT=5080" # Port that Cygnus listens on for operational reasons
+
+  iot-agent:
+    image: fiware/iotagent-ul:latest
+    hostname: iot-agent
+    container_name: fiware-iot-agent
+    depends_on:
+      - mongo-db
+      - mosquitto
+    networks:
+      - default
+    expose:
+      - "4041"
+    ports:
+      - "4041:4041"
+      - "7896:7896"
+    restart: always
+    environment:
+      - "IOTA_CB_HOST=orion" # name of the context broker to update context
+      - "IOTA_CB_PORT=1026" # port the context broker listens on to update context
+      - "IOTA_NORTH_PORT=4041"
+      - "IOTA_REGISTRY_TYPE=mongodb" #Whether to hold IoT device info in memory or in a database
+      - "IOTA_LOG_LEVEL=DEBUG" #The log level of the IoT Agent
+      - "IOTA_TIMESTAMP=true"
+      - "IOTA_MONGO_HOST=mongo-db" # The host name of ongoDB
+      - "IOTA_MONGO_PORT=27017" # The port mongoDB is listening on
+      - "IOTA_MONGO_DB=iotagentul" # The name of the database used in mongoDB
+      - "IOTA_MQTT_HOST=mosquitto" # The host name of the MQTT Broker
+      - "IOTA_MQTT_PORT=1883" # The port the MQTT Broker is listening on to receive topics 
+      - "IOTA_HTTP_PORT=7896" # The port used for device traffic over HTTP
+      - "IOTA_PROVIDER_URL=http://iot-agent:4041"
+
+#----------INICIO WIRECLOUD ------
+#  wirecloud:
+#    image: gbvsilva/wirecloud
+#    hostname: wirecloud
+#    container_name: wirecloud
+#    networks:
+#      - default
+#    expose:
+#      - "8000"
+#    ports:
+#      - "80:8000"
+#    restart: always
+#---------FIM WIRECOUD-----------
+
+#  httpd:
+#    image: httpd
+#    hostname: httpd
+#    container_name: apache-server
+#    networks:
+#      - default
+#    expose:
+#      - "8080"
+#    ports:
+#      - "8080:80"
+#    volumes:
+#      - apache-data:/usr/local/apache2/htdocs
+#    restart: always
+# -------------------------FIM APACHE--------------------------
+
+#  ngsiproxy:
+#    image: fiware/ngsiproxy
+#    hostname: ngsiproxy
+#    container_name: ngsiproxy
+#    networks:
+#      - default
+#    expose:
+#      - "3000"
+#    ports:
+#      - "3000:3000"
+#    restart: always
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    hostname: phpmyadmin
+    container_name: phpmyadmin
+    networks:
+      - default
+    expose:
+      - "9000"
+    ports:
+      - "9000:80"
+    restart: always
+    environment:
+     - "PMA_HOST=db-mysql"
+
+  portainer:
+    image: portainer/portainer
+    hostname: portainer
+    container_name: portainer
+    networks:
+      - default
+    expose:
+      - "9000"
+    ports:
+      - "572:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data/portainer/portainer
+    restart: always
+ 
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.18.1.0/24
+
+volumes:
+  mongo-db:
+  mysql-db:
+  portainer_data:
