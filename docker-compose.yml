@@ -49,7 +49,7 @@ services:
       - "MYSQL_ROOT_PASSWORD=123"
       - "MYSQL_ROOT_HOST=%"
     volumes:
-      - mysql-db:/var/lib/mysql
+      - ./mysql-db:/var/lib/mysql
     restart: always
 
   orion:
