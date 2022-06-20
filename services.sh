@@ -17,12 +17,12 @@ case "${command}" in
     "start")
 		
 		echo ""
-		docker-compose --log-level ERROR -p fiware up -d --remove-orphans
+		docker compose -p fiware up -d --remove-orphans
 		echo ""
 		;;
 	"stop")
 		echo "stopping containers"
-		docker-compose --log-level ERROR -p fiware down -v --remove-orphans
+		docker compose -p fiware down -v --remove-orphans
 		;;
 	"create")
 		echo "Obtaining Mongo DB image"
